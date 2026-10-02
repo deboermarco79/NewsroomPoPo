@@ -1,0 +1,656 @@
+<title>NH Politie Nieuwsfeed</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  /* Compact operationeel dashboard — donkere basisthema, politie-neutrale stijl */
+  :root {
+    --bg:        #f0f1f3;
+    --bg-card:   #ffffff;
+    --bg-header: #1a1e26;
+    --fg:        #1a1e26;
+    --fg-muted:  #5a6070;
+    --fg-label:  #8a919e;
+    --border:    #dde0e6;
+    --accent:    #1a4b8c;
+    --accent-hi: #2460b0;
+    --new:       #0e7a4e;
+    --new-bg:    #e6f5ef;
+    --mono:      'DM Mono', 'Courier New', monospace;
+    --sans:      'IBM Plex Sans', system-ui, sans-serif;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #0f1117;
+      --bg-card:   #181c25;
+      --bg-header: #0a0d12;
+      --fg:        #e2e6ee;
+      --fg-muted:  #8a919e;
+      --fg-label:  #5a6070;
+      --border:    #252a36;
+      --accent:    #4a88d8;
+      --accent-hi: #6aa0e8;
+      --new:       #34c77a;
+      --new-bg:    #0d2b1e;
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg:        #0f1117;
+    --bg-card:   #181c25;
+    --bg-header: #0a0d12;
+    --fg:        #e2e6ee;
+    --fg-muted:  #8a919e;
+    --fg-label:  #5a6070;
+    --border:    #252a36;
+    --accent:    #4a88d8;
+    --accent-hi: #6aa0e8;
+    --new:       #34c77a;
+    --new-bg:    #0d2b1e;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    padding-inline: 0;
+    padding-block: 0;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: var(--bg-header);
+    color: #e2e6ee;
+    padding: 0 20px;
+    padding-top: env(safe-area-inset-top, 0px);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: calc(56px + env(safe-area-inset-top, 0px));
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header-badge {
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    padding: 3px 7px;
+    border-radius: 3px;
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #ffffff;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.live  { background: var(--new); box-shadow: 0 0 0 3px color-mix(in srgb, var(--new) 25%, transparent); animation: pulse 2s infinite; }
+  .status-dot.error { background: #e05a4e; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .status-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #8a919e;
+    letter-spacing: 0.04em;
+  }
+
+  .refresh-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #c8cdd8;
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.14); }
+  .refresh-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .toolbar-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-label);
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .toolbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .count-badge {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+
+  /* ── Feed ── */
+  .feed-outer {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .feed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ── Loading / error states ── */
+  .state-msg {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--fg-muted);
+    font-size: 13px;
+  }
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Bericht card ── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 16px;
+    align-items: start;
+    cursor: pointer;
+    transition: border-color 0.12s, box-shadow 0.12s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .card.is-new {
+    border-left: 3px solid var(--new);
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    grid-column: 1;
+  }
+
+  .card-gebied {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--fg-label);
+  }
+
+  .card-type {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+
+  .card-new-tag {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: var(--new-bg);
+    color: var(--new);
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--fg);
+    grid-column: 1;
+    text-wrap: balance;
+    min-width: 0;
+  }
+
+  .card-intro {
+    font-size: 13px;
+    color: var(--fg-muted);
+    line-height: 1.5;
+    grid-column: 1;
+    min-width: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-time {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-label);
+    white-space: nowrap;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    padding-top: 2px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .footer-info {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-label);
+  }
+
+  .auto-label {
+    font-size: 11px;
+    color: var(--fg-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  @media (max-width: 540px) {
+    .header { padding: 0 16px; }
+    .header-title { font-size: 13px; }
+    .toolbar { padding: 8px 16px; }
+    .feed-outer { padding: 12px 16px; }
+    .card { grid-template-columns: 1fr; }
+    .card-time { grid-column: 1; grid-row: auto; text-align: left; margin-top: 6px; }
+    .footer { padding: 8px 16px; }
+  }
+</style>
+
+<header class="header">
+  <div class="header-logo">
+    <span class="header-badge">04 NH</span>
+    <span class="header-title">Politie Noord-Holland — Nieuwsfeed</span>
+  </div>
+  <div class="header-right">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">—</span>
+    <button class="refresh-btn" id="refreshBtn" onclick="fetchNieuws()">Vernieuwen</button>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="toolbar-label">Filter</span>
+  <div class="filter-group" id="filterGroup">
+    <button class="filter-btn active" data-filter="alle" onclick="setFilter('alle', this)">Alle</button>
+    <button class="filter-btn" data-filter="incident" onclick="setFilter('incident', this)">Incident</button>
+    <button class="filter-btn" data-filter="opsporing" onclick="setFilter('opsporing', this)">Opsporing</button>
+    <button class="filter-btn" data-filter="vermissing" onclick="setFilter('vermissing', this)">Vermissing</button>
+    <button class="filter-btn" data-filter="verkeer" onclick="setFilter('verkeer', this)">Verkeer</button>
+    <button class="filter-btn" data-filter="nieuw" onclick="setFilter('nieuw', this)">Nieuw (&lt;2u)</button>
+  </div>
+  <div class="toolbar-right">
+    <span class="count-badge" id="countBadge">—</span>
+  </div>
+</div>
+
+<div class="feed-outer">
+  <div class="feed" id="feed">
+    <div class="state-msg">
+      <div class="spinner"></div>
+      Berichten ophalen…
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <span class="footer-info" id="lastFetch">Nog niet geladen</span>
+  <span class="auto-label">
+    <span class="status-dot live" style="width:6px;height:6px;flex-shrink:0"></span>
+    Auto-refresh elke 3 min
+  </span>
+</footer>
+
+<script>
+  // Eigen proxy op localhost:3737 — stel PROXY_URL in op het adres van jouw server
+  // Laat leeg ('') om de ingebouwde allorigins fallback te gebruiken (geen proxy nodig)
+  const PROXY_URL = '';   // bijv. 'http://localhost:3737' of 'https://proxy.jouwdomein.nl'
+  const PROXY = 'https://api.allorigins.win/get?url=';
+  const API_BASE = 'https://api.politie.nl/v4/nieuws';
+  const NH_CODE = '/04/';
+  const MAX_ITEMS = 200;
+
+  let allBerichten = [];
+  let activeFilter = 'alle';
+  let knownUids = new Set();
+  let refreshTimer = null;
+
+  // Meerdere calls: nationaal + geo-clusters voor NH dekking
+  const GEO_POINTS = [
+    { lat: 52.387, lon: 4.646, label: 'Haarlem' },
+    { lat: 52.632, lon: 4.747, label: 'Alkmaar' },
+    { lat: 52.952, lon: 4.761, label: 'Den Helder' },
+    { lat: 52.703, lon: 5.050, label: 'Hoorn' },
+    { lat: 52.456, lon: 5.068, label: 'Purmerend' },
+  ];
+
+  function parseDate(s) {
+    if (!s) return null;
+    // "20261002" → Date
+    if (/^\d{8}$/.test(s)) {
+      return new Date(s.slice(0,4), parseInt(s.slice(4,6))-1, s.slice(6,8));
+    }
+    return new Date(s);
+  }
+
+  function formatTime(d) {
+    if (!d) return '';
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 0) return d.toLocaleDateString('nl-NL');
+    if (diff < 60*60*1000) return Math.floor(diff/60000) + ' min geleden';
+    if (diff < 24*60*60*1000) return Math.floor(diff/3600000) + ' uur geleden';
+    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  }
+
+  function guessType(bericht) {
+    const tekst = ((bericht.titel || '') + ' ' + (bericht.introductie || '')).toLowerCase();
+    if (/vermis|ontbrek|spoorloos/.test(tekst)) return 'vermissing';
+    if (/aanrijding|ongeluk|verkeers|crash|botsin/.test(tekst)) return 'verkeer';
+    if (/opsporing|gezocht|getuige|opsporingsbericht/.test(tekst)) return 'opsporing';
+    return 'incident';
+  }
+
+  function isNH(b) {
+    const url = b.url || '';
+    // Heeft /04/ in de URL
+    if (url.includes(NH_CODE)) return true;
+    // Of "Noord-Holland" in gebied
+    const gebied = (b.gebied || '').toLowerCase();
+    if (gebied.includes('noord-holland') || gebied.includes('nh')) return true;
+    return false;
+  }
+
+  function isNew(b) {
+    const d = parseDate(b.publicatieDatum);
+    if (!d) return false;
+    return (new Date() - d) < 2 * 60 * 60 * 1000;
+  }
+
+  function setStatus(state, text) {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    dot.className = 'status-dot ' + state;
+    txt.textContent = text;
+  }
+
+  async function fetchUrl(apiPath) {
+    // 1. Eigen proxy (server.js) — geen CORS-problemen
+    if (PROXY_URL) {
+      const endpoint = apiPath.replace('https://api.politie.nl/v4/nieuws', '');
+      const r = await fetch(PROXY_URL + '/nieuws' + (endpoint ? '?' + endpoint.split('?')[1] : ''));
+      if (r.ok) {
+        const data = await r.json();
+        return data; // proxy geeft { berichten: [...] } terug
+      }
+    }
+    // 2. Directe fetch (werkt alleen als CORS open is)
+    try {
+      const r = await fetch(apiPath, { headers: { Accept: 'application/json' } });
+      if (r.ok) return r.json();
+    } catch(_) {}
+    // 3. Fallback: publieke proxy
+    const proxyUrl = PROXY + encodeURIComponent(apiPath);
+    const r = await fetch(proxyUrl);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const wrapper = await r.json();
+    return JSON.parse(wrapper.contents);
+  }
+
+  async function fetchBatch(url) {
+    try {
+      const data = await fetchUrl(url);
+      return data.nieuwsberichten || [];
+    } catch(e) {
+      return [];
+    }
+  }
+
+  async function fetchNieuws() {
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    setStatus('', 'Ophalen…');
+
+    try {
+      // Haal nationaal nieuws op (max 200), filter daarna op NH
+      const mainUrl = `${API_BASE}?language=nl&maxnumberofitems=25&offset=0`;
+      const mainUrl2 = `${API_BASE}?language=nl&maxnumberofitems=25&offset=25`;
+
+      // Ook lokaal nieuws per geo-punt
+      const geoUrls = GEO_POINTS.map(p =>
+        `${API_BASE}/lokaal?language=nl&lat=${p.lat}&lon=${p.lon}&radius=25.0&maxnumberofitems=25`
+      );
+
+      const allUrls = [mainUrl, mainUrl2, ...geoUrls];
+      const results = await Promise.allSettled(allUrls.map(fetchBatch));
+
+      // Dedupliceer op uid
+      const seen = new Set();
+      const raw = [];
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          for (const b of r.value) {
+            const uid = b.uid || b.canonicalHandleUuid || b.url;
+            if (uid && !seen.has(uid)) {
+              seen.add(uid);
+              raw.push(b);
+            }
+          }
+        }
+      }
+
+      // Filter op NH
+      const nhBerichten = raw.filter(isNH);
+
+      // Markeer nieuw (nog niet eerder gezien)
+      const nieuwUids = new Set();
+      for (const b of nhBerichten) {
+        const uid = b.uid || b.canonicalHandleUuid || b.url;
+        if (uid && !knownUids.has(uid)) nieuwUids.add(uid);
+      }
+
+      // Update knownUids
+      for (const b of nhBerichten) {
+        const uid = b.uid || b.canonicalHandleUuid || b.url;
+        if (uid) knownUids.add(uid);
+      }
+
+      // Sorteer op datum (nieuwste eerst)
+      nhBerichten.sort((a, b) => {
+        const da = parseDate(a.publicatieDatum) || new Date(0);
+        const db = parseDate(b.publicatieDatum) || new Date(0);
+        return db - da;
+      });
+
+      allBerichten = nhBerichten.map(b => ({
+        ...b,
+        _type: guessType(b),
+        _isNew: isNew(b),
+        _nieuwUID: nieuwUids.has(b.uid || b.canonicalHandleUuid || b.url),
+      }));
+
+      const nu = new Date();
+      document.getElementById('lastFetch').textContent =
+        `Laatste update: ${nu.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })} · ${nhBerichten.length} berichten`;
+
+      setStatus(nhBerichten.length > 0 ? 'live' : '', nhBerichten.length > 0 ? 'Live' : 'Geen resultaten');
+      renderFeed();
+
+    } catch(err) {
+      setStatus('error', 'Fout');
+      document.getElementById('feed').innerHTML =
+        `<div class="state-msg">Kan berichten niet ophalen.<br><small>${err.message}</small></div>`;
+    }
+
+    btn.disabled = false;
+  }
+
+  function setFilter(f, el) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderFeed();
+  }
+
+  function renderFeed() {
+    const feed = document.getElementById('feed');
+
+    let list = allBerichten;
+    if (activeFilter === 'nieuw') {
+      list = list.filter(b => b._isNew);
+    } else if (activeFilter !== 'alle') {
+      list = list.filter(b => b._type === activeFilter);
+    }
+
+    document.getElementById('countBadge').textContent = list.length + ' bericht' + (list.length !== 1 ? 'en' : '');
+
+    if (list.length === 0) {
+      feed.innerHTML = '<div class="state-msg">Geen berichten voor dit filter.</div>';
+      return;
+    }
+
+    feed.innerHTML = list.map(b => {
+      const datum = parseDate(b.publicatieDatum);
+      const tijdStr = formatTime(datum);
+      const url = b.url || '#';
+      const fullUrl = url.startsWith('http') ? url : 'https://www.politie.nl' + url;
+      const typeLabel = { incident: 'Incident', opsporing: 'Opsporing', vermissing: 'Vermissing', verkeer: 'Verkeer' }[b._type] || b._type;
+
+      return `<a class="card${b._nieuwUID ? ' is-new' : ''}" href="${fullUrl}" target="_blank" rel="noopener">
+        <div class="card-meta">
+          <span class="card-gebied">${b.gebied || 'Noord-Holland'}</span>
+          <span class="card-type">${typeLabel}</span>
+          ${b._nieuwUID ? '<span class="card-new-tag">Nieuw</span>' : ''}
+        </div>
+        <div class="card-title">${b.titel || 'Zonder titel'}</div>
+        <div class="card-intro">${b.introductie || ''}</div>
+        <div class="card-time">${tijdStr}</div>
+      </a>`;
+    }).join('');
+  }
+
+  // Start
+  fetchNieuws();
+
+  // Auto-refresh elke 3 minuten
+  refreshTimer = setInterval(fetchNieuws, 3 * 60 * 1000);
+</script>
